@@ -1,180 +1,277 @@
-# FastAPI Учебное приложение - Контрольная работа №3
+# FastAPI КР4: Миграции, Обработка Ошибок, Валидация и Тестирование
 
-Институт: ИПТИП  
-Дисциплина: Технологии разработки серверных приложений  
-Преподаватель: Дворецкий Артур Геннадьевич  
-
-## Обзор
-
-Данное приложение реализует все требуемые задачи из контрольной работы №3 по FastAPI:
-
-- **Задание 6.1**: Базовая HTTP-аутентификация `/login` (GET)
-- **Задание 6.2**: Хеширование паролей с Bcrypt + `/register` + `/login`
-- **Задание 6.3**: Защита документации (режимы DEV/PROD)
-- **Задание 6.4**: JWT-аутентификация
-- **Задание 6.5**: Расширенная JWT + Ограничение частоты запросов (Rate Limiting)
-- **Задание 7.1**: Управление доступом на основе ролей (RBAC)
-- **Задание 8.1**: Регистрация пользователей в SQLite
-- **Задание 8.2**: CRUD-операции с ресурсом Todo
-
-## Установка
-
-```bash
-# Создание виртуального окружения (рекомендуется)
-python -m venv venv
-
-# Активация виртуального окружения
-# Linux/macOS:
-source venv/bin/activate
-# Windows:
-venv\Scripts\activate
-
-# Установка зависимостей
-pip install -r requirements.txt
-```
-
-## Запуск приложения
-
-```bash
-# Запуск сервера
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
-
-# Альтернативный запуск через Python
-python main.py
-```
-
-После запуска сервер будет доступен по адресу: http://localhost:8000
-
-## Переменные окружения
-
-Скопируйте `.env.example` в `.env` и настройте:
-
-```bash
-MODE=DEV           # DEV или PROD
-DOCS_USER=admin    # Имя пользователя для доступа к документации (режим DEV)
-DOCS_PASSWORD=admin123  # Пароль для доступа к документации (режим DEV)
-SECRET_KEY=your-secret-key  # Секретный ключ для JWT
-```
-
-## Эндпоинты API
-
-### Аутентификация (Задания 6.1, 6.2)
-
-```bash
-# Регистрация нового пользователя
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"username":"user1","password":"correctpass"}' \
-  http://localhost:8000/register
-
-# Вход с базовой аутентификацией (GET)
-curl -u user1:correctpass http://localhost:8000/login
-```
-
-### JWT-аутентификация (Задания 6.4, 6.5)
-
-```bash
-# Вход с получением JWT-токена (POST)
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"username":"user1","password":"correctpass"}' \
-  http://localhost:8000/login
-
-# Доступ к защищенному ресурсу
-curl -H "Authorization: Bearer <токен>" \
-  http://localhost:8000/protected_resource
-```
-
-### RBAC (Задание 7.1)
-
-```bash
-# Ресурс администратора
-curl -H "Authorization: Bearer <токен>" \
-  http://localhost:8000/admin_resource
-
-# Ресурс пользователя
-curl -H "Authorization: Bearer <токен>" \
-  http://localhost:8000/user_resource
-
-# Ресурс гостя
-curl -H "Authorization: Bearer <токен>" \
-  http://localhost:8000/guest_resource
-
-# Получить все роли
-curl http://localhost:8000/roles
-```
-
-### База данных (Задание 8.1)
-
-```bash
-# Регистрация пользователя в SQLite
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"username":"test_user","password":"12345"}' \
-  http://localhost:8000/db/register
-```
-
-### Todo CRUD (Задание 8.2)
-
-```bash
-# Создать Todo
-curl -X POST -H "Content-Type: application/json" \
-  -d '{"title":"Купить продукты","description":"Молоко, яйца, хлеб"}' \
-  http://localhost:8000/todos
-
-# Получить Todo по ID
-curl http://localhost:8000/todos/1
-
-# Обновить Todo
-curl -X PUT -H "Content-Type: application/json" \
-  -d '{"title":"Купить продукты","description":"Молоко, яйца, хлеб, масло","completed":true}' \
-  http://localhost:8000/todos/1
-
-# Удалить Todo
-curl -X DELETE http://localhost:8000/todos/1
-
-# Получить все Todo
-curl http://localhost:8000/todos
-```
-
-## Тестирование
-
-Приложение можно тестировать с помощью curl-команд, указанных выше. Все эндпоинты возвращают соответствующие HTTP-коды состояния:
-
-- `200 OK` - Успешный запрос
-- `201 Created` - Ресурс создан
-- `401 Unauthorized` - Ошибка аутентификации
-- `403 Forbidden` - Недостаточно прав
-- `404 Not Found` - Ресурс не найден
-- `409 Conflict` - Пользователь уже существует
-- `429 Too Many Requests` - Превышен лимит запросов
+Реализация контрольной работы №4 включает:
+- **Задание 9.1**: Alembic миграции БД (SQLite)
+- **Задание 10.1-10.2**: Пользовательские обработчики ошибок (CustomExceptionA, CustomExceptionB)
+- **Задание 10.2**: Валидация данных с Pydantic (conint, EmailStr, constr)
+- **Задание 11.1-11.2**: Асинхронные тесты с pytest-asyncio и Faker
 
 ## Структура проекта
 
 ```
-.
-├── app/
-│   ├── __init__.py
-│   └── config.py          # Конфигурация настроек
-├── main.py                # Основное приложение
-├── requirements.txt       # Python-зависимости
-├── .env                   # Переменные окружения
-├── .env.example          # Шаблон переменных окружения
-└── README.md              # Этот файл
+tsp/
+├── main.py                 # FastAPI приложение с эндпоинтами
+├── models.py              # SQLAlchemy модели (Product, UserDB)
+├── schemas.py             # Pydantic схемы (User, UserOut)
+├── database.py            # Конфигурация БД (SQLite)
+├── exceptions.py          # Пользовательские исключения
+├── alembic/               # Миграции Alembic
+│   ├── versions/          # Файлы миграций
+│   └── env.py            # Конфиг Alembic
+├── tests/
+│   └── test_api.py        # Асинхронные тесты (11 тестов)
+├── requirements.txt       # Зависимости
+└── app.db                 # SQLite БД (создаётся при запуске)
 ```
 
-## Режимы работы
+## Установка и запуск
 
-### Режим DEV
-- Документация доступна по адресу `/docs`
-- Требуется базовая аутентификация для доступа к документации
-- Используйте `MODE=DEV` в `.env`
+### 1. Установка зависимостей
 
-### Режим PROD
-- Документация полностью скрыта (`/docs`, `/redoc`, `/openapi.json` возвращают 404)
-- Используйте `MODE=PROD` в `.env`
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
 
-## Примечания
+### 2. Запуск приложения
 
-- Пароли хешируются с использованием Bcrypt
-- JWT-токены истекают через 30 минут (по умолчанию)
-- Ограничение частоты запросов: `/register` - 1/мин, `/login` - 5/мин
-- Для сравнения строк используется `secrets.compare_digest()` для защиты от тайминг-атак
-- Пользователи хранятся в памяти (для заданий 6.x-7.x) и в SQLite (для задания 8.1)
+```bash
+source venv/bin/activate
+python main.py
+```
+
+Приложение запустится на `http://127.0.0.1:8000`
+
+### 3. Работа с миграциями
+
+**Просмотр истории миграций:**
+```bash
+alembic history
+```
+
+**Применение миграций:**
+```bash
+alembic upgrade head
+```
+
+**Откат к предыдущей версии:**
+```bash
+alembic downgrade -1
+```
+
+## API Эндпоинты
+
+### POST /users (Задание 10.2, 11.1)
+**Создание пользователя** с валидацией:
+- `username`: строка (обязательно)
+- `age`: integer > 18 (обязательно)
+- `email`: EmailStr валиден (обязательно)
+- `password`: string 8-16 символов (обязательно)
+- `phone`: optional, default "Unknown"
+
+**Пример запроса:**
+```json
+{
+  "username": "john_doe",
+  "age": 25,
+  "email": "john@example.com",
+  "password": "SecurePass123",
+  "phone": "555-0123"
+}
+```
+
+**Ответ (201):**
+```json
+{
+  "id": 1,
+  "username": "john_doe",
+  "age": 25,
+  "email": "john@example.com",
+  "phone": "555-0123"
+}
+```
+
+**Ошибка валидации (422):**
+```json
+{
+  "detail": [
+    {
+      "type": "greater_than",
+      "loc": ["body", "age"],
+      "msg": "Input should be greater than 18"
+    }
+  ]
+}
+```
+
+### GET /users/{user_id} (Задание 10.2, 11.1)
+**Получение пользователя по ID**
+
+**Успех (200):**
+```json
+{
+  "id": 1,
+  "username": "john_doe",
+  "age": 25,
+  "email": "john@example.com",
+  "phone": "555-0123"
+}
+```
+
+**Не найден (404):**
+```json
+{
+  "error": "User not found"
+}
+```
+
+### DELETE /users/{user_id} (Задание 10.2, 11.1)
+**Удаление пользователя**
+
+**Успех:** 204 No Content
+
+**Ошибка:** 404 Not Found
+
+### GET /check-condition/{condition} (Задание 10.1)
+**Демонстрация CustomExceptionA**
+
+- `/check-condition/ok` → 200 {"status": "ok"}
+- `/check-condition/invalid` → 400 {"error": "Condition 'invalid' is not valid"}
+
+## Обработчики ошибок
+
+### CustomExceptionA (Код 400)
+Выбрасывается при нарушении бизнес-логики (задание 10.1)
+```python
+raise CustomExceptionA("Condition 'invalid' is not valid")
+```
+
+### CustomExceptionB (Код 404)
+Выбрасывается когда ресурс не найден (задание 10.1)
+```python
+raise CustomExceptionB("User not found")
+```
+
+## Тестирование
+
+### Запуск всех тестов
+
+```bash
+source venv/bin/activate
+pytest tests/test_api.py -v
+```
+
+### Ключевые сценарии (11 тестов)
+
+| Тест | Сценарий | Статус |
+|------|----------|--------|
+| `test_create_user_201` | Создание → 201 | ✓ |
+| `test_get_existing_user_200` | Получение существующего → 200 | ✓ |
+| `test_get_nonexistent_user_404` | Получение несуществующего → 404 | ✓ |
+| `test_delete_existing_user_204` | Удаление существующего → 204 | ✓ |
+| `test_delete_nonexistent_user_404` | Повторное удаление → 404 | ✓ |
+| `test_user_validation_age_gt_18` | Валидация age > 18 | ✓ |
+| `test_user_validation_email` | Валидация email | ✓ |
+| `test_user_validation_password_length` | Валидация пароля (8-16) | ✓ |
+| `test_multiple_users_state_isolation` | Изоляция состояния | ✓ |
+| `test_custom_exception_a_handler` | CustomExceptionA → 400 | ✓ |
+| `test_custom_exception_b_handler` | CustomExceptionB → 404 | ✓ |
+
+### Особенности тестов (Задание 11.2)
+
+- **Асинхронные**: используется `pytest-asyncio`
+- **HTTP клиент**: `httpx.AsyncClient` + `ASGITransport` (без реального сервера)
+- **Генерация данных**: `Faker` для реалистичных username, email, phone
+- **Изоляция**: In-memory SQLite БД, очищается перед каждым тестом
+- **Покрытие**: успешные и ошибочные сценарии для всех 3 эндпоинтов
+
+## Миграции БД (Задание 9.1)
+
+### Первая миграция (создание таблиц)
+Создаёт таблицы `products` и `users` с полями:
+
+**products:**
+- id (Primary Key)
+- title (String)
+- price (Float)
+- count (Integer)
+- description (String)
+
+**users:**
+- id (Primary Key)
+- username (String, unique)
+- age (Integer)
+- email (String, unique)
+- password (String)
+- phone (String, default="Unknown")
+
+### Генерирование миграций
+```bash
+alembic revision --autogenerate -m "Description"
+```
+
+### Применение
+```bash
+alembic upgrade head
+```
+
+## Примеры использования
+
+### Создание пользователя
+```bash
+curl -X POST http://localhost:8000/users \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "alice",
+    "age": 30,
+    "email": "alice@example.com",
+    "password": "MyPassword123",
+    "phone": "555-5555"
+  }'
+```
+
+### Получение пользователя
+```bash
+curl http://localhost:8000/users/1
+```
+
+### Удаление пользователя
+```bash
+curl -X DELETE http://localhost:8000/users/1
+```
+
+### Проверка обработчика ошибок
+```bash
+curl http://localhost:8000/check-condition/invalid
+# Ответ: {"error": "Condition 'invalid' is not valid"}
+```
+
+## Команды для проверки
+
+```bash
+# 1. Установка
+python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+
+# 2. Запуск приложения
+python main.py
+
+# 3. В другом терминале - запуск тестов
+pytest tests/test_api.py -v
+
+# 4. Проверка миграций
+alembic history
+
+# 5. Просмотр БД
+sqlite3 app.db ".tables"
+```
+
+## Статус заданий
+
+- ✅ **Задание 9.1**: Alembic миграции (Product с id, title, price, count)
+- ✅ **Задание 10.1**: CustomExceptionA и CustomExceptionB с обработчиками
+- ✅ **Задание 10.2**: User с conint(gt=18), EmailStr, constr(8-16), валидация
+- ✅ **Задание 11.1**: Модульные асинхронные тесты
+- ✅ **Задание 11.2**: Async тесты с pytest-asyncio, httpx, Faker, изоляция состояния
+
+**Все тесты проходят: 11/11 ✓**
